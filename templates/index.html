@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>olmOCR - PDF 转 Markdown</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            margin-bottom: 30px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 12px;
+            padding: 60px 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f1ff;
+        }
+
+        .upload-area.dragging {
+            border-color: #764ba2;
+            background: #e8e9ff;
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 20px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result {
+            display: none;
+        }
+
+        .result.active {
+            display: block;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .result-title {
+            font-size: 1.5em;
+            color: #333;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 8px 20px;
+            font-size: 0.9em;
+        }
+
+        .markdown-preview {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 30px;
+            max-height: 600px;
+            overflow-y: auto;
+            line-height: 1.8;
+            font-size: 1em;
+        }
+
+        .markdown-preview h1,
+        .markdown-preview h2,
+        .markdown-preview h3 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .markdown-preview p {
+            margin-bottom: 15px;
+        }
+
+        .markdown-preview code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .error {
+            display: none;
+            background: #fee;
+            border: 2px solid #fcc;
+            color: #c33;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        .provider-info {
+            text-align: center;
+            color: white;
+            margin-top: 20px;
+            opacity: 0.8;
+        }
+
+        .info-box {
+            background: #e8f4fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .info-box strong {
+            color: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 olmOCR</h1>
+            <p>AI 驱动的 PDF 转 Markdown 工具</p>
+        </div>
+
+        <div class="card">
+            <div class="info-box">
+                <strong>✨ 功能特性:</strong> 支持 PDF、PNG、JPEG 格式 | 识别公式、表格、手写 | 自动移除页眉页脚 | 智能排版
+            </div>
+
+            <div class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📎</div>
+                    <div class="upload-text">点击或拖拽文件到此处</div>
+                    <div class="upload-hint">支持 PDF, PNG, JPG (最大 50MB)</div>
+                    <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg">
+                </div>
+                <div style="text-align: center;">
+                    <button class="btn" id="uploadBtn" disabled>开始转换</button>
+                </div>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>正在处理中，请稍候...</p>
+                <p style="color: #999; font-size: 0.9em;">大文件可能需要几分钟</p>
+            </div>
+
+            <div class="error" id="error"></div>
+
+            <div class="result" id="result">
+                <div class="result-header">
+                    <div class="result-title">✅ 转换完成</div>
+                    <div class="btn-group">
+                        <button class="btn btn-small" onclick="copyMarkdown()">📋 复制</button>
+                        <button class="btn btn-small" onclick="downloadMarkdown()">💾 下载</button>
+                        <button class="btn btn-small" onclick="resetForm()">🔄 重新上传</button>
+                    </div>
+                </div>
+                <div class="markdown-preview" id="markdownPreview"></div>
+            </div>
+        </div>
+
+        <div class="provider-info">
+            <p>推理服务商: <strong>{{ provider }}</strong></p>
+            <p style="font-size: 0.9em; margin-top: 5px;">Powered by olmOCR & Allen Institute for AI</p>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+        let markdownContent = '';
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const result = document.getElementById('result');
+        const markdownPreview = document.getElementById('markdownPreview');
+
+        // 点击上传区域
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // 文件选择
+        fileInput.addEventListener('change', (e) => {
+            handleFile(e.target.files[0]);
+        });
+
+        // 拖拽上传
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragging');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragging');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragging');
+            handleFile(e.dataTransfer.files[0]);
+        });
+
+        // 处理文件
+        function handleFile(file) {
+            if (!file) return;
+
+            const validTypes = ['application/pdf', 'image/png', 'image/jpeg'];
+            if (!validTypes.includes(file.type)) {
+                showError('不支持的文件格式，请上传 PDF、PNG 或 JPG 文件');
+                return;
+            }
+
+            if (file.size > 50 * 1024 * 1024) {
+                showError('文件大小超过 50MB 限制');
+                return;
+            }
+
+            selectedFile = file;
+            uploadArea.querySelector('.upload-text').textContent = `已选择: ${file.name}`;
+            uploadBtn.disabled = false;
+        }
+
+        // 上传按钮
+        uploadBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            // 显示加载状态
+            document.querySelector('.upload-section').style.display = 'none';
+            loading.classList.add('active');
+            error.classList.remove('active');
+            result.classList.remove('active');
+
+            try {
+                const response = await fetch('/api/convert', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '转换失败');
+                }
+
+                // 显示结果
+                markdownContent = data.markdown;
+                markdownPreview.textContent = markdownContent;
+                loading.classList.remove('active');
+                result.classList.add('active');
+
+            } catch (err) {
+                loading.classList.remove('active');
+                showError(err.message);
+                document.querySelector('.upload-section').style.display = 'block';
+            }
+        });
+
+        // 显示错误
+        function showError(message) {
+            error.textContent = `❌ ${message}`;
+            error.classList.add('active');
+            setTimeout(() => {
+                error.classList.remove('active');
+            }, 5000);
+        }
+
+        // 复制 Markdown
+        function copyMarkdown() {
+            navigator.clipboard.writeText(markdownContent).then(() => {
+                alert('✅ 已复制到剪贴板');
+            }).catch(() => {
+                alert('❌ 复制失败');
+            });
+        }
+
+        // 下载 Markdown
+        function downloadMarkdown() {
+            const blob = new Blob([markdownContent], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = selectedFile.name.replace(/\.[^/.]+$/, '') + '.md';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // 重置表单
+        function resetForm() {
+            selectedFile = null;
+            fileInput.value = '';
+            uploadArea.querySelector('.upload-text').textContent = '点击或拖拽文件到此处';
+            uploadBtn.disabled = true;
+            result.classList.remove('active');
+            document.querySelector('.upload-section').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
