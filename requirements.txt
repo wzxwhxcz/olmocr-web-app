@@ -3,11 +3,8 @@ Flask==3.0.0
 gunicorn==21.2.0
 Werkzeug==3.0.1
 
-# olmOCR 核心依赖（不需要 GPU）
-olmocr[bench]
-
-# PDF 处理
-pypdfium2
+# olmOCR（只安装核心，不安装 bench 和 GPU 依赖）
+olmocr
 
 # 其他工具
 python-dotenv==1.0.0
