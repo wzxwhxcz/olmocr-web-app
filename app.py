@@ -16,13 +16,20 @@ import logging
 from datetime import datetime
 
 # 配置日志
+log_handlers = [logging.StreamHandler()]
+
+# 尝试在临时目录创建日志文件（适配 Render 等云平台）
+try:
+    log_file = os.path.join(tempfile.gettempdir(), 'olmocr_app.log')
+    log_handlers.append(logging.FileHandler(log_file))
+except (PermissionError, OSError):
+    # 如果无法创建日志文件，只输出到控制台
+    pass
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('olmocr_app.log')
-    ]
+    handlers=log_handlers
 )
 logger = logging.getLogger(__name__)
 
@@ -268,6 +275,12 @@ if __name__ == '__main__':
     logger.info(f"上传文件夹: {app.config['UPLOAD_FOLDER']}")
     logger.info(f"最大文件大小: {app.config['MAX_CONTENT_LENGTH'] / (1024*1024):.0f}MB")
 
+    # 日志文件位置
+    if len(log_handlers) > 1:
+        logger.info(f"日志文件: {log_file}")
+    else:
+        logger.info("日志输出: 仅控制台 (无文件)")
+
     if not API_KEY:
         logger.warning("⚠️  警告: 未设置 OLMOCR_API_KEY 环境变量")
         print("⚠️  警告: 未设置 OLMOCR_API_KEY 环境变量")
@@ -280,4 +293,8 @@ if __name__ == '__main__':
     logger.info(f"调试模式: {debug_mode}")
     logger.info("=" * 60)
 
-    app.run(host='0.0.0.0', port=port, debug=debug_mode)
+    try:
+        app.run(host='0.0.0.0', port=port, debug=debug_mode)
+    except Exception as e:
+        logger.error(f"服务启动失败: {str(e)}", exc_info=True)
+        raise
