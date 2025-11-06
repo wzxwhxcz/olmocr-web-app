@@ -21,6 +21,10 @@ app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
 PROVIDER = os.environ.get('OLMOCR_PROVIDER', 'deepinfra')
 API_KEY = os.environ.get('OLMOCR_API_KEY', '')
 
+# 支持自定义 API URL 和模型
+CUSTOM_API_URL = os.environ.get('OLMOCR_CUSTOM_API_URL', '')
+CUSTOM_MODEL = os.environ.get('OLMOCR_CUSTOM_MODEL', '')
+
 # 提供商配置
 PROVIDERS = {
     'deepinfra': {
@@ -34,6 +38,10 @@ PROVIDERS = {
     'parasail': {
         'server': 'https://api.parasail.io/v1',
         'model': 'allenai/olmOCR-2-7B-1025',
+    },
+    'custom': {
+        'server': CUSTOM_API_URL or 'http://localhost:8000/v1',
+        'model': CUSTOM_MODEL or 'olmocr',
     },
 }
 
@@ -82,15 +90,24 @@ def process_pdf_with_olmocr(pdf_path, output_dir):
 @app.route('/')
 def index():
     """主页"""
-    return render_template('index.html', provider=PROVIDER)
+    provider_config = PROVIDERS.get(PROVIDER, {})
+    return render_template(
+        'index.html',
+        provider=PROVIDER,
+        api_url=provider_config.get('server', ''),
+        model=provider_config.get('model', '')
+    )
 
 
 @app.route('/health')
 def health():
     """健康检查"""
+    provider_config = PROVIDERS.get(PROVIDER, {})
     return jsonify({
         'status': 'ok',
         'provider': PROVIDER,
+        'api_url': provider_config.get('server', ''),
+        'model': provider_config.get('model', ''),
         'api_key_configured': bool(API_KEY)
     })
 

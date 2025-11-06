@@ -278,6 +278,12 @@
 
         <div class="provider-info">
             <p>推理服务商: <strong>{{ provider }}</strong></p>
+            {% if api_url %}
+            <p style="font-size: 0.85em; margin-top: 3px;">API: {{ api_url }}</p>
+            {% endif %}
+            {% if model %}
+            <p style="font-size: 0.85em; margin-top: 3px;">模型: {{ model }}</p>
+            {% endif %}
             <p style="font-size: 0.9em; margin-top: 5px;">Powered by olmOCR & Allen Institute for AI</p>
         </div>
     </div>
